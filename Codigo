@@ -1,0 +1,232 @@
+import json
+import os
+
+clientes = []
+gerentes = []
+jogos = []
+
+def salvar_dados():
+    with open("gerentes.json", "w") as f:
+        json.dump(gerentes, f, indent=4)
+    with open("jogos.json", "w") as f:
+        json.dump(jogos, f, indent=4)
+    with open("clientes.json", "w") as f:
+        json.dump(clientes, f, indent=4)
+
+def carregar_dados():
+    global gerentes, jogos, clientes
+    if os.path.exists("gerentes.json"):
+        with open("gerentes.json", "r") as f:
+            gerentes = json.load(f)
+    else:
+        gerentes = [{"nome": "admin", "senha": "1234"}]
+
+    if os.path.exists("jogos.json"):
+        with open("jogos.json", "r") as f:
+            jogos = json.load(f)
+    else:
+        jogos = []
+
+    if os.path.exists("clientes.json"):
+        with open("clientes.json", "r") as f:
+            clientes = json.load(f)
+    else:
+        clientes = []
+
+def exibir_menu_principal():
+    print('''
+
+--- MENU PRINCIPAL ---
+
+1. Login como cliente
+2. Login como gerente
+3. Cadastrar novo cliente
+4. Cadastrar novo gerente
+0. Sair
+
+''')
+
+def exibir_menu_gerente():
+    print('''
+
+--- MENU DO GERENTE ---
+
+1. Cadastrar jogo
+2. Listar jogos
+3. Listar clientes
+4. Adicionar saldo a cliente
+0. Sair
+
+''')
+
+def exibir_menu_cliente(nome):
+    print(f'''
+
+--- MENU DO CLIENTE ({nome}) ---
+
+1. Ver jogos disponíveis
+2. Adicionar jogo ao carrinho
+3. Ver carrinho
+4. Finalizar compra
+5. Ver saldo
+0. Sair
+
+''')
+
+def cadastrar_usuario(lista, tipo):
+    nome = input(f"Nome do {tipo}: ").strip()
+    senha = input(f"Senha do {tipo}: ").strip()
+    if any(u['nome'] == nome for u in lista):
+        print("Usuário já existe.\n")
+        return
+    usuario = {"nome": nome, "senha": senha}
+    if tipo == "cliente":
+        usuario["saldo"] = 0.0
+        usuario["carrinho"] = []
+    lista.append(usuario)
+    print(f"{tipo.capitalize()} cadastrado com sucesso!\n")
+    salvar_dados()
+
+def autenticar(lista, tipo):
+    nome = input(f"Nome do {tipo}: ").strip()
+    senha = input(f"Senha do {tipo}: ").strip()
+    for u in lista:
+        if u["nome"] == nome and u["senha"] == senha:
+            return u
+    print("Credenciais inválidas.\n")
+    return None
+
+def cadastrar_jogo_manual():
+    id_jogo = input("ID do jogo: ")
+    nome = input("Nome do jogo: ")
+    preco = float(input("Preço: R$"))
+    classificacao = int(input("Classificação indicativa: "))
+    jogos.append({"id": id_jogo, "nome": nome, "preco": preco, "classificacao": classificacao})
+    salvar_dados()
+    print("Jogo cadastrado com sucesso.\n")
+
+def listar_jogos():
+    if not jogos:
+        print("Nenhum jogo disponível.\n")
+        return
+    for j in jogos:
+        print(f"{j['id']} - {j['nome']} | R${j['preco']:.2f} | {j['classificacao']}+")
+
+def listar_clientes():
+    if not clientes:
+        print("Nenhum cliente.\n")
+        return
+    for c in clientes:
+        print(f"{c['nome']} | Saldo: R${c['saldo']:.2f}")
+
+def adicionar_saldo():
+    nome = input("Nome do cliente: ")
+    cliente = next((c for c in clientes if c["nome"] == nome), None)
+    if not cliente:
+        print("Cliente não encontrado.\n")
+        return
+    valor = float(input("Valor a adicionar: R$"))
+    cliente["saldo"] += valor
+    print("Saldo adicionado com sucesso!\n")
+    salvar_dados()
+
+def adicionar_ao_carrinho(cliente):
+    listar_jogos()
+    id_jogo = input("Digite o ID do jogo para adicionar ao carrinho: ")
+    jogo = next((j for j in jogos if j["id"] == id_jogo), None)
+    if not jogo:
+        print("Jogo não encontrado.\n")
+        return
+    if jogo in cliente.get("carrinho", []):
+        print("Jogo já está no carrinho.\n")
+        return
+    cliente["carrinho"].append(jogo)
+    print("Jogo adicionado ao carrinho.\n")
+    salvar_dados()
+
+def ver_carrinho(cliente):
+    if not cliente.get("carrinho"):
+        print("Carrinho vazio.\n")
+        return
+    total = sum(j["preco"] for j in cliente["carrinho"])
+    print("Jogos no carrinho:")
+    for j in cliente["carrinho"]:
+        print(f"{j['id']} - {j['nome']} | R${j['preco']:.2f}")
+    print(f"Total: R${total:.2f}\n")
+
+def finalizar_compra(cliente):
+    carrinho = cliente.get("carrinho", [])
+    if not carrinho:
+        print("Carrinho vazio.\n")
+        return
+    total = sum(j["preco"] for j in carrinho)
+    if cliente["saldo"] < total:
+        print("Saldo insuficiente.\n")
+        return
+    cliente["saldo"] -= total
+    cliente["carrinho"] = []
+    print(f"Compra realizada com sucesso! Total: R${total:.2f}\n")
+    salvar_dados()
+
+def menu_gerente():
+    while True:
+        exibir_menu_gerente()
+        op = input("Escolha: ")
+        if op == "1":
+            cadastrar_jogo_manual()
+        elif op == "2":
+            listar_jogos()
+        elif op == "3":
+            listar_clientes()
+        elif op == "4":
+            adicionar_saldo()
+        elif op == "0":
+            break
+        else:
+            print("Opção inválida.\n")
+
+def menu_cliente(cliente):
+    while True:
+        exibir_menu_cliente(cliente["nome"])
+        op = input("Escolha: ")
+        if op == "1":
+            listar_jogos()
+        elif op == "2":
+            adicionar_ao_carrinho(cliente)
+        elif op == "3":
+            ver_carrinho(cliente)
+        elif op == "4":
+            finalizar_compra(cliente)
+        elif op == "5":
+            print(f"Saldo disponível: R${cliente['saldo']:.2f}\n")
+        elif op == "0":
+            break
+        else:
+            print("Opção inválida.\n")
+
+def main():
+    carregar_dados()
+    while True:
+        exibir_menu_principal()
+        op = input("Escolha: ")
+        if op == "1":
+            cliente = autenticar(clientes, "cliente")
+            if cliente:
+                menu_cliente(cliente)
+        elif op == "2":
+            gerente = autenticar(gerentes, "gerente")
+            if gerente:
+                menu_gerente()
+        elif op == "3":
+            cadastrar_usuario(clientes, "cliente")
+        elif op == "4":
+            cadastrar_usuario(gerentes, "gerente")
+        elif op == "0":
+            salvar_dados()
+            print("Encerrando...")
+            break
+        else:
+            print("Opção inválida.\n")
+
+if __name__ == "__main__":
+    main()
